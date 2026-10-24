@@ -1,0 +1,1 @@
+Andrea colocará allí el archivo hand_landmarker.task, que se descarga de MediaPipe. Ya viene entrenado para localizar las manos y sus 21 puntos de referencia por mano. No tienen que entrenarlo ustedes.

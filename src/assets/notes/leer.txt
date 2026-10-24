@@ -1,0 +1,1 @@
+En su proyecto, Hirano colocará en assets/notes/ los sonidos de las notas musicales: DO, RE, MI, FA, SOL, LA y SI en las cuatro octavas, es decir, 28 sonidos.
