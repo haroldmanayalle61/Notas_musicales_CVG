@@ -1,0 +1,23 @@
+# Proyecto CGV - Windows x86-64, CPython 3.13.17
+# Versiones resueltas para CPython 3.13 / win_amd64 el 2026-10-24
+# Incluye dependencias transitivas. Usar un entorno virtual nuevo.
+absl-py==2.5.1
+cffi==2.1.1
+contourpy==1.4.0
+cycler==0.12.1
+flatbuffers==25.12.19
+fonttools==4.67.0
+kiwisolver==1.5.1
+matplotlib==3.11.2
+mediapipe==0.10.32
+numpy==2.2.6
+opencv-contrib-python==4.12.0.88
+packaging==26.3
+pillow==13.0.0
+pycparser==3.12
+pygame==2.6.1
+pyparsing==3.3.3
+python-dateutil==3.0.0
+six==1.17.0
+sounddevice==0.5.6
+tzdata==2026.5
