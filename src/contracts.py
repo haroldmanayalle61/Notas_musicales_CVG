@@ -33,32 +33,23 @@ class FingerState:
 
     left y right contienen cinco valores, en este orden:
     [pulgar, índice, medio, anular, meñique].
-    True = dedo abajo (activo); False = dedo arriba (en reposo).
-    IMPORTANTE: este acuerdo sustituye al anterior de extendido/doblado.
-    Un dedo puede bajar sin flexionarse mucho. Piero compara su posición
-    con una referencia de reposo, no solo el ángulo de sus articulaciones.
-    Abajo no significa necesariamente una coordenada y mayor en la imagen:
-    depende de la cámara. Se necesita una referencia inicial y distinguir
-    el movimiento del dedo del movimiento de toda la mano.
-    La referencia y los umbrales se implementan en gestures.py; mientras
-    no exista una referencia utilizable, se entrega valid=False.
-    No se afirma que haya contacto físico con la mesa.
+    True = dedo levantado (activo); False = extendido en reposo.
+    Levantado indica desplazamiento respecto a la postura de reposo, no
+    simplemente tener el dedo recto. Se guardan dos poses con C: primero
+    cinco segundos en reposo y luego cinco segundos con los dedos levantados,
+    manteniendo las palmas quietas. gestures.py aprende el recorrido de cada
+    punta relativo a la palma. La camara no mide contacto con una mesa.
+    Antes de calibrar ambas poses, se entrega valid=False.
 
-    Siete dedos se asignan a DO, RE, MI, FA, SOL, LA y SI:
-    - Arriba: no activan su nota.
-    - Al bajar: activan su nota; al subir, la sueltan.
-    - Mantener el dedo abajo no genera pulsaciones repetidas por imagen.
-    - Para repetir la misma nota, hay que subir el dedo y volver a bajarlo.
-    Sin dedos musicales abajo hay silencio. Si hay más de uno, por ahora
-    también hay silencio: la primera versión toca una sola nota a la vez.
+    Siete dedos producen DO, RE, MI, FA, SOL, LA y SI al levantarlos;
+    al volver al reposo se suelta la nota. Mantener el gesto no repite el
+    sonido; para repetir hay que volver al reposo y levantar otra vez.
+    Sin dedos musicales activos hay silencio. Con varios tambien: esta
+    version permite una sola nota a la vez.
 
-    Los otros tres dedos seleccionan la octava por cantidad de dedos abajo:
-    0 = primera disponible, 1 = segunda, 2 = tercera, 3 = cuarta.
-    La octava se mantiene mientras se conserve esa combinación; al cambiar
-    la cantidad, cambia la selección. Seleccionar octava no dispara sonido
-    por sí solo. El reparto de dedos y las cuatro octavas musicales
-    concretas se acuerdan en equipo y se definen en music.py/config.py.
-    No confundir primera octava disponible con la octava musical número 1.
+    Los tres dedos restantes de la derecha eligen octava por cantidad
+    de dedos levantados: 0, 1, 2 o 3 seleccionan las octavas 3, 4, 5 o 6.
+    Cambiar octava no produce sonido por si solo. music.py define el reparto.
 
     valid solo será True si ambas manos están disponibles y el estado
     se puede interpretar. False significa dato no válido, no una octava

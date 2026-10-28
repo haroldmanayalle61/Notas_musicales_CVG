@@ -21,5 +21,23 @@ TAMANO_TITULO = 1.1
 
 # Espera entre actualizaciones y código de la tecla ESC.
 # La espera no incluye el tiempo que tarde en procesarse cada imagen.
-ESPERA_MS = 30
+ESPERA_MS = 1
 TECLA_SALIR = 27
+
+# Opciones para conectar los módulos.
+CAMARA_INDICE = 0
+# Reflejar solo la imagen mostrada; el detector recibe el original.
+ESPEJO = True
+# Un estado debe mantenerse este tiempo para aceptarlo como estable.
+VENTANA_ESTABILIDAD_MS = 60
+# La imagen se analiza cada ciclo; la estabilidad se controla aparte.
+TECLA_CALIBRAR = ord("c")
+CALIBRACION_SEGUNDOS = 5
+CALIBRACION_MUESTREO_MS = 1000
+CALIBRACION_MIN_MUESTRAS = 5
+# Fraccion del recorrido aprendido: levantar activa; volver al reposo libera.
+GESTO_ACTIVACION = 0.65
+GESTO_LIBERACION = 0.35
+GESTO_RECORRIDO_MINIMO = 0.08
+GESTO_TOLERANCIA_LATERAL = 0.35
+PESO_PROFUNDIDAD = 0.5

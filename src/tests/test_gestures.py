@@ -1,169 +1,152 @@
-import math
 import unittest
 from types import SimpleNamespace
-
-from gestures import analyze, FingerState
+import numpy as np
+from contracts import FingerState
+from gestures import GestureAnalyzer, GestureConfig
 from stabilizer import Stabilizer
+from music import MusicEngine
 
-PIVOT = (0.5, 0.8)
-
-
-def make_points(fingers, mirror=False, angle=0.0):
-    """Mano sintetica vertical. fingers = [pulgar, indice, medio, anular, menique]."""
-    p = [(0.0, 0.0)] * 21
-    p[0] = (0.5, 0.8)
-    p[1], p[2] = (0.46, 0.74), (0.40, 0.68)
-    if fingers[0]:
-        p[3], p[4] = (0.34, 0.62), (0.28, 0.57)
-    else:
-        p[3], p[4] = (0.47, 0.64), (0.53, 0.62)
-    for i, x in enumerate((0.43, 0.48, 0.53, 0.58)):
-        b = 5 + 4 * i
-        p[b] = (x, 0.55)
-        if fingers[i + 1]:
-            p[b + 1], p[b + 2], p[b + 3] = (x, 0.47), (x, 0.41), (x, 0.36)
-        else:
-            p[b + 1], p[b + 2], p[b + 3] = (x, 0.47), (x, 0.53), (x, 0.60)
-    out = []
-    c, s = math.cos(angle), math.sin(angle)
-    for x, y in p:
-        if mirror:
-            x = 1.0 - x
-        dx, dy = x - PIVOT[0] if not mirror else x - (1.0 - PIVOT[0]), y - PIVOT[1]
-        cx = (1.0 - PIVOT[0]) if mirror else PIVOT[0]
-        out.append((cx + dx * c - dy * s, PIVOT[1] + dx * s + dy * c, 0.0))
-    return out
-
-
-def hand(side, fingers, **kw):
-    return SimpleNamespace(side=side, points=make_points(fingers, mirror=(side == "Left"), **kw))
-
-
-ALL = [True] * 5
 NONE = [False] * 5
 
 
-class TestAnalyze(unittest.TestCase):
-    def test_all_extended(self):
-        s = analyze([hand("Left", ALL), hand("Right", ALL)])
-        self.assertTrue(s.valid)
-        self.assertEqual(s.left, ALL)
-        self.assertEqual(s.right, ALL)
-
-    def test_all_flexed_is_valid(self):
-        s = analyze([hand("Left", NONE), hand("Right", NONE)])
-        self.assertTrue(s.valid)
-        self.assertEqual(s.left, NONE)
-        self.assertEqual(s.right, NONE)
-
-    def test_each_finger_individually(self):
-        for i in range(5):
-            f = [j == i for j in range(5)]
-            for side_l, side_r in (("Left", "Right"), ("Right", "Left")):
-                s = analyze([hand(side_l, f), hand(side_r, NONE)])
-                self.assertTrue(s.valid)
-                got = s.left if side_l == "Left" else s.right
-                self.assertEqual(got, f, f"dedo {i}")
-
-    def test_thumbs_both_sides(self):
-        s = analyze([hand("Left", [True, False, False, False, False]),
-                     hand("Right", [True, False, False, False, False])])
-        self.assertEqual(s.left[0], True)
-        self.assertEqual(s.right[0], True)
-
-    def test_rotation_invariant(self):
-        f = [True, True, False, True, False]
-        for ang in (0.5, 1.57, 3.14, -1.0):
-            s = analyze([hand("Left", f, angle=ang), hand("Right", f, angle=ang)])
-            self.assertEqual(s.left, f)
-            self.assertEqual(s.right, f)
-
-    def test_missing_hands_invalid(self):
-        self.assertFalse(analyze([]).valid)
-        self.assertFalse(analyze(None).valid)
-        self.assertFalse(analyze([hand("Left", ALL)]).valid)
-        self.assertFalse(analyze([hand("Right", ALL)]).valid)
-
-    def test_invalid_is_not_all_flexed(self):
-        s = analyze([hand("Left", NONE)])
-        self.assertFalse(s.valid)
-
-    def test_duplicate_or_unknown_side_invalid(self):
-        self.assertFalse(analyze([hand("Left", ALL), hand("Left", ALL)]).valid)
-        self.assertFalse(analyze([hand("Left", ALL), SimpleNamespace(side="X", points=make_points(ALL))]).valid)
-
-    def test_bad_points_invalid(self):
-        bad = SimpleNamespace(side="Right", points=make_points(ALL)[:20])
-        self.assertFalse(analyze([hand("Left", ALL), bad]).valid)
-        nan = make_points(ALL)
-        nan[8] = (float("nan"), 0.0, 0.0)
-        self.assertFalse(analyze([hand("Left", ALL), SimpleNamespace(side="Right", points=nan)]).valid)
-        flat = SimpleNamespace(side="Right", points=[(0.5, 0.5, 0.0)] * 21)
-        self.assertFalse(analyze([hand("Left", ALL), flat]).valid)
-
-    def test_accepts_dicts(self):
-        h = [{"side": "Left", "points": make_points(ALL)},
-             {"side": "Right", "points": make_points(NONE)}]
-        s = analyze(h)
-        self.assertTrue(s.valid)
-        self.assertEqual(s.left, ALL)
-        self.assertEqual(s.right, NONE)
+def hand(side, active=(), lift=.08):
+    p = np.zeros((21, 3))
+    p[:] = (.5, .7, 0)
+    p[0] = (.5, .85, 0)
+    p[1:5] = [( .4,.7,0),(.35,.65,0),(.3,.6,0),(.25,.55,0)]
+    for i, x in enumerate((.4,.47,.54,.61)):
+        base = 5 + i * 4
+        p[base:base+4] = [(x,.6,0),(x,.5,0),(x,.42,0),(x,.35,0)]
+    for i in active:
+        tip = (4,8,12,16,20)[i]
+        p[tip, 2] -= lift
+        p[tip, 1] += lift / 3
+    if side == 'Left':
+        p[:, 0] = 1 - p[:, 0]
+    return SimpleNamespace(side=side, points=p.tolist())
 
 
-def fs(valid=True, left=None, right=None):
-    return FingerState(valid=valid, left=list(left or NONE), right=list(right or NONE))
+def hands(left=(), right=(), **kwargs):
+    return [hand('Left', left, **kwargs), hand('Right', right, **kwargs)]
+
+
+class TestLiftGestures(unittest.TestCase):
+    def setUp(self):
+        self.a = GestureAnalyzer()
+        self.assertTrue(self.a.save_rest([hands()] * 5))
+        self.assertTrue(self.a.save_raised([hands(range(5), range(5))] * 5))
+        self.a.analyze(hands())
+
+    def test_extended_rest_is_silent(self):
+        state = self.a.analyze(hands())
+        self.assertTrue(state.valid)
+        self.assertEqual(state.left, NONE)
+        self.assertIsNone(MusicEngine().resolve(state).note)
+
+    def test_each_finger_in_each_hand(self):
+        for side in ('left', 'right'):
+            for i in range(5):
+                self.a.analyze(hands())
+                state = self.a.analyze(hands(**{side: (i,)}))
+                self.assertEqual(getattr(state, side), [j == i for j in range(5)])
+                self.assertEqual(getattr(state, 'right' if side == 'left' else 'left'), NONE)
+
+    def test_note_and_octave_use_raised_fingers(self):
+        state = self.a.analyze(hands((1,), (2,)))
+        music = MusicEngine().resolve(state)
+        self.assertEqual((music.note, music.octave), ('RE', 4))
+        self.assertIsNone(MusicEngine().resolve(self.a.analyze(hands())).note)
+
+    def test_must_return_to_rest_after_calibration(self):
+        self.a.reset()
+        self.a.save_rest([hands()] * 5)
+        self.a.save_raised([hands(range(5), range(5))] * 5)
+        self.assertEqual(self.a.analyze(hands((1,))).left, NONE)
+        self.a.analyze(hands())
+        self.assertTrue(self.a.analyze(hands((1,))).left[1])
+
+    def test_translation_scale_and_rotation_of_whole_hand_do_not_play(self):
+        changed = hands()
+        for h in changed:
+            p = np.asarray(h.points)
+            p *= 1.2
+            angle = .4
+            matrix = np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]])
+            p[:, :2] = p[:, :2] @ matrix.T + (.05, -.03)
+            h.points = p.tolist()
+        result = self.a.analyze(changed)
+        self.assertEqual(result.left, NONE)
+        self.assertEqual(result.right, NONE)
+
+    def test_small_movement_does_not_play(self):
+        self.assertEqual(self.a.analyze(hands((1,), lift=.01)).left, NONE)
+
+    def test_hysteresis_and_repeated_press(self):
+        self.assertTrue(self.a.analyze(hands((1,))).left[1])
+        self.assertTrue(self.a.analyze(hands((1,), lift=.04)).left[1])
+        self.assertFalse(self.a.analyze(hands((1,), lift=.02)).left[1])
+        self.assertTrue(self.a.analyze(hands((1,))).left[1])
+
+    def test_missing_hand_stops_and_requires_return_to_rest(self):
+        self.assertTrue(self.a.analyze(hands((1,))).left[1])
+        self.assertFalse(self.a.analyze([hand('Left')]).valid)
+        self.assertFalse(self.a.analyze(hands((1,))).left[1])
+        self.a.analyze(hands())
+        self.assertTrue(self.a.analyze(hands((1,))).left[1])
+
+    def test_no_calibration_is_invalid(self):
+        self.assertFalse(GestureAnalyzer().analyze(hands()).valid)
+
+    def test_invalid_input_is_silent(self):
+        bad = hands()
+        bad[0].points[8] = (float('nan'),0,0)
+        for value in ([], None, bad, [hand('Left'),hand('Left')], [hand('X'),hand('Right')]):
+            self.assertFalse(self.a.analyze(value).valid)
+
+    def test_incomplete_or_unchanged_calibration_rejected(self):
+        a = GestureAnalyzer()
+        self.assertFalse(a.save_rest([hands()] * 4))
+        self.assertTrue(a.save_rest([hands()] * 5))
+        self.assertFalse(a.save_raised([hands()] * 5))
+        self.assertFalse(a.calibrated)
+
+    def test_unclear_noisy_calibration_is_rejected(self):
+        a = GestureAnalyzer()
+        a.save_rest([hands()] * 5)
+        unstable = [hands(range(5), range(5), lift=v) for v in (.02,.14,.02,.14,.08)]
+        self.assertFalse(a.save_raised(unstable))
+        self.assertFalse(a.calibrated)
+
+    def test_dictionary_observations_and_reset(self):
+        observation = [vars(h) for h in hands((2,))]
+        self.assertTrue(self.a.analyze(observation).left[2])
+        self.a.reset()
+        self.assertFalse(self.a.analyze(observation).valid)
+
+    def test_configuration_validation(self):
+        for kwargs in ({'press_fraction':.2, 'release_fraction':.5}, {'min_travel':0}, {'depth_weight':float('nan')}):
+            with self.assertRaises(ValueError):
+                GestureConfig(**kwargs)
 
 
 class TestStabilizer(unittest.TestCase):
-    A = [True, False, False, False, False]
-    B = [False, True, False, False, False]
+    def test_brief_change_ignored_and_loss_immediate(self):
+        st = Stabilizer(100)
+        rest = FingerState(True)
+        raised = FingerState(True, [False,True,False,False,False], NONE)
+        self.assertFalse(st.update(rest, 0).valid)
+        self.assertTrue(st.update(rest, 100).valid)
+        self.assertFalse(st.update(raised, 110).left[1])
+        self.assertFalse(st.update(rest, 150).left[1])
+        st.update(raised, 200)
+        self.assertTrue(st.update(raised, 300).left[1])
+        self.assertFalse(st.update(FingerState(), 301).valid)
 
-    def test_needs_window_to_change(self):
-        st = Stabilizer(window_ms=100)
-        self.assertFalse(st.update(fs(left=self.A), 0).valid)
-        self.assertFalse(st.update(fs(left=self.A), 50).valid)
-        out = st.update(fs(left=self.A), 100)
-        self.assertTrue(out.valid)
-        self.assertEqual(out.left, self.A)
-
-    def test_brief_glitch_ignored(self):
-        st = Stabilizer(window_ms=100)
-        st.update(fs(left=self.A), 0)
-        st.update(fs(left=self.A), 100)
-        self.assertEqual(st.update(fs(left=self.B), 133).left, self.A)
-        self.assertEqual(st.update(fs(left=self.A), 166).left, self.A)
-        self.assertEqual(st.update(fs(left=self.A), 400).left, self.A)
-
-    def test_sustained_change_accepted(self):
-        st = Stabilizer(window_ms=100)
-        st.update(fs(left=self.A), 0)
-        st.update(fs(left=self.A), 100)
-        st.update(fs(left=self.B), 133)
-        self.assertEqual(st.update(fs(left=self.B), 200).left, self.A)
-        self.assertEqual(st.update(fs(left=self.B), 233).left, self.B)
-
-    def test_invalid_is_immediate_silence(self):
-        st = Stabilizer(window_ms=100)
-        st.update(fs(left=self.A), 0)
-        st.update(fs(left=self.A), 100)
-        out = st.update(fs(valid=False), 133)
-        self.assertFalse(out.valid)
-        # al volver, debe reestabilizarse
-        self.assertFalse(st.update(fs(left=self.A), 166).valid)
-        self.assertTrue(st.update(fs(left=self.A), 266).valid)
-
-    def test_timestamps_must_increase(self):
-        st = Stabilizer()
-        st.update(fs(), 10)
+    def test_timestamps_and_copy(self):
+        st = Stabilizer(0)
+        state = FingerState(True)
+        result = st.update(state, 0)
+        result.left[0] = True
+        self.assertFalse(st.update(state, 1).left[0])
         with self.assertRaises(ValueError):
-            st.update(fs(), 10)
-
-    def test_returns_copies(self):
-        st = Stabilizer(window_ms=0)
-        out = st.update(fs(left=self.A), 0)
-        out.left[0] = False
-        self.assertEqual(st.update(fs(left=self.A), 1).left, self.A)
-
-
-if __name__ == "__main__":
-    unittest.main()
+            st.update(state, 1)

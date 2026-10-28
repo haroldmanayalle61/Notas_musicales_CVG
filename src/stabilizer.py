@@ -2,10 +2,7 @@ from __future__ import annotations
 
 from typing import Optional, Tuple
 
-try:
-    from contracts import FingerState
-except ImportError:
-    from gestures import FingerState
+from contracts import FingerState
 
 from gestures import invalid_state
 

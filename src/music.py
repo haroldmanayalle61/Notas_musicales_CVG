@@ -110,7 +110,7 @@ class MusicEngine:
                 True,
                 None,
                 octava,
-                "Varias notas: baja un solo dedo"
+                "Varias notas: levanta un solo dedo"
             )
 
         nota = notas_activas[0]
