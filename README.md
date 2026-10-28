@@ -29,7 +29,7 @@ La calibración aprende la diferencia entre reposo y levantamiento: tener el ded
 Las manos corresponden a tu izquierda y derecha, aunque la imagen se muestre en espejo.
 
 | Mano | Dedo que levantas | Nota |
-| --- | --- | --- |
+| ---- | ----------------- | --- |
 | Izquierda | Pulgar | DO |
 | Izquierda | Índice | RE |
 | Izquierda | Medio | MI |
